@@ -92,6 +92,49 @@ bot.on("message", async (msg) => {
 `💰 ${user.balance.toLocaleString()} VND`);
   }
 
+/* ===== RÚT TIỀN ===== */
+if (text === "💸 Rút tiền") {
+  user.step = "withdraw_amount";
+  return bot.sendMessage(chatId,
+`✅ Số Tiền Rút Tối Thiểu Là: 200,000 VND
+
+🏧 Bạn nhập số tiền rút
+Ví dụ: 200000`);
+}
+
+if (user.step === "withdraw_amount") {
+  const amount = parseInt(text);
+  if (isNaN(amount) || amount < 200000)
+    return bot.sendMessage(chatId, "❌ Số tiền rút tối thiểu 200,000 VND");
+  if (amount > user.balance)
+    return bot.sendMessage(chatId, "❌ Số dư không đủ");
+
+  user.withdrawAmount = amount;
+  user.step = "withdraw_info";
+
+  return bot.sendMessage(chatId,
+`Bạn vui lòng nhập:
+Tên ngân hàng + Họ tên + STK
+
+Ví dụ:
+Vietcombank N.V.A 123456789`);
+}
+
+if (user.step === "withdraw_info") {
+  user.withdrawInfo = text;
+  user.step = "withdraw_confirm";
+
+  return bot.sendMessage(chatId,
+`❗ XÁC NHẬN RÚT TIỀN
+💰 Số tiền: ${user.withdrawAmount.toLocaleString()} VND`, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "✅ Chắc chắn", callback_data: "confirm_withdraw" }],
+        [{ text: "❌ Huỷ", callback_data: "cancel_withdraw" }]
+      ]
+    }
+  });
+}
   if (text === "💳 Nạp tiền") {
     return bot.sendMessage(chatId,
 `📩 Liên hệ admin: @admxucxactele`);
@@ -184,7 +227,41 @@ bot.on("callback_query", async (q) => {
     return mainMenu(chatId);
   }
 });
+/if (q.data === "confirm_withdraw") {
+  withdrawRequests.push({
+    id: chatId,
+    amount: user.withdrawAmount,
+    info: user.withdrawInfo,
+    status: "pending"
+  });
 
+  user.balance -= user.withdrawAmount;
+
+  bot.editMessageText("✅ Đã ghi nhận yêu cầu rút tiền", {
+    chat_id: chatId,
+    message_id: q.message.message_id
+  });
+
+  ADMINS.forEach(aid => {
+    bot.sendMessage(aid,
+`📢 YÊU CẦU RÚT TIỀN
+👤 ID: ${chatId}
+💰 ${user.withdrawAmount.toLocaleString()} VND
+🏧 ${user.withdrawInfo}`);
+  });
+
+  resetUserState(user);
+  return mainMenu(chatId);
+}
+
+if (q.data === "cancel_withdraw") {
+  bot.editMessageText("❌ Đã huỷ yêu cầu rút tiền", {
+    chat_id: chatId,
+    message_id: q.message.message_id
+  });
+  resetUserState(user);
+  return mainMenu(chatId);
+}
 /* ================== ADMIN NẠP ================== */
 bot.onText(/\/naptien (\d+) (\d+)/, (msg, m) => {
   if (!ADMINS.includes(msg.chat.id)) return;
