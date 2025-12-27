@@ -65,10 +65,17 @@ bot.onText(/\/start/, (msg) => {
 `🎲 BOT CHẴN / LẺ – 1 XÚC XẮC
 
 🎯 Xúc 1 viên – Kết quả ngay
-💰 Thắng ăn đủ – Thua mất cược
-🔒 Minh bạch – tự động
+🎲 Trò chơi giải trí minh bạch – công bằng
+💰 Thắng thua cập nhật số dư tức thì
+🔒 Hệ thống tự động – bảo mật
 
-⚠️ ADMIN DUY NHẤT: @admxucxactele`
+⚠️ LƯU Ý:
+BOT chỉ có 1 ADMIN DUY NHẤT: @admxucxactele  
+Ngoài tài khoản trên, tất cả đều là giả mạo.
+
+🎁 ƯU ĐÃI NGƯỜI DÙNG MỚI
+👉 Tặng ngay 20,000 VND
+📩 Nhắn ngay @admxucxactele để nhận 20,000 VND tiền trải nghiệm.`
   );
 
   mainMenu(chatId);
@@ -176,6 +183,42 @@ bot.on("callback_query", async (q) => {
   const chatId = q.message.chat.id;
   initUser(chatId);
   const user = users[chatId];
+  // ===== XÁC NHẬN RÚT TIỀN =====
+if (q.data === "confirm_withdraw") {
+  withdrawRequests.push({
+    id: chatId,
+    amount: user.withdrawAmount,
+    info: user.withdrawInfo,
+    status: "pending"
+  });
+
+  user.balance -= user.withdrawAmount;
+
+  await bot.editMessageText("✅ Đã ghi nhận yêu cầu rút tiền", {
+    chat_id: chatId,
+    message_id: q.message.message_id
+  });
+
+  ADMINS.forEach(aid => {
+    bot.sendMessage(aid,
+`📢 YÊU CẦU RÚT TIỀN
+👤 ID: ${chatId}
+💰 ${user.withdrawAmount.toLocaleString()} VND
+🏧 ${user.withdrawInfo}`);
+  });
+
+  resetUserState(user);
+  return mainMenu(chatId);
+}
+
+if (q.data === "cancel_withdraw") {
+  await bot.editMessageText("❌ Đã huỷ yêu cầu rút tiền", {
+    chat_id: chatId,
+    message_id: q.message.message_id
+  });
+  resetUserState(user);
+  return mainMenu(chatId);
+}
 
   // ===== CHỌN CỬA =====
   if (q.data === "even" || q.data === "odd") {
@@ -227,13 +270,6 @@ bot.on("callback_query", async (q) => {
     return mainMenu(chatId);
   }
 });
-if (q.data === "confirm_withdraw") {
-  withdrawRequests.push({
-    id: chatId,
-    amount: user.withdrawAmount,
-    info: user.withdrawInfo,
-    status: "pending"
-  });
 
   user.balance -= user.withdrawAmount;
 
@@ -254,14 +290,6 @@ if (q.data === "confirm_withdraw") {
   return mainMenu(chatId);
 }
 
-if (q.data === "cancel_withdraw") {
-  bot.editMessageText("❌ Đã huỷ yêu cầu rút tiền", {
-    chat_id: chatId,
-    message_id: q.message.message_id
-  });
-  resetUserState(user);
-  return mainMenu(chatId);
-}
 /* ================== ADMIN NẠP ================== */
 bot.onText(/\/naptien (\d+) (\d+)/, (msg, m) => {
   if (!ADMINS.includes(msg.chat.id)) return;
