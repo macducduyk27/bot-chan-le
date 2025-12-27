@@ -285,3 +285,61 @@ bot.onText(/\/naptien (\d+) (\d+)/, (msg, m) => {
   bot.sendMessage(uid, `🎉 Đã nạp ${amount.toLocaleString()} VND`);
   bot.sendMessage(msg.chat.id, `✅ Nạp thành công cho ${uid}`);
 });
+bot.onText(/\/ruttien (\d+)/, (msg, m) => {
+  if (!ADMINS.includes(msg.chat.id)) return;
+
+  const uid = parseInt(m[1]);
+
+  const reqIndex = withdrawRequests.findIndex(
+    r => r.id === uid && r.status === "pending"
+  );
+
+  if (reqIndex === -1) {
+    return bot.sendMessage(msg.chat.id, "❌ Không tìm thấy yêu cầu rút tiền");
+  }
+
+  const req = withdrawRequests[reqIndex];
+  req.status = "done";
+  withdrawHistory.push(req);
+  withdrawRequests.splice(reqIndex, 1);
+
+  // ✅ THÔNG BÁO USER (CHÍNH LÀ CÁI BẠN MUỐN)
+  bot.sendMessage(uid,
+`🎉 CHÚC MỪNG BẠN 🎉
+
+💸 Yêu cầu rút tiền đã được xử lý thành công
+💰 Số tiền: ${req.amount.toLocaleString()} VND
+🏧 ${req.info}
+
+Cảm ơn bạn đã sử dụng bot ❤️`);
+
+  // TB admin
+  bot.sendMessage(msg.chat.id,
+`✅ Đã duyệt rút tiền cho user ${uid}
+💰 ${req.amount.toLocaleString()} VND`);
+});
+bot.onText(/\/danhsachrut/, (msg) => {
+  if (!ADMINS.includes(msg.chat.id)) return;
+
+  if (withdrawRequests.length === 0) {
+    return bot.sendMessage(
+      msg.chat.id,
+      "📭 Hiện không có yêu cầu rút tiền nào đang chờ duyệt"
+    );
+  }
+
+  let text = "📋 DANH SÁCH RÚT TIỀN CHỜ DUYỆT\n\n";
+
+  withdrawRequests.forEach((r, i) => {
+    text +=
+`#${i + 1}
+👤 User ID: ${r.id}
+💰 Số tiền: ${r.amount.toLocaleString()} VND
+🏧 Thông tin: ${r.info}
+📌 Trạng thái: CHỜ DUYỆT
+
+`;
+  });
+
+  bot.sendMessage(msg.chat.id, text);
+});
