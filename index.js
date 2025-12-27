@@ -101,6 +101,7 @@ bot.on("message", async (msg) => {
 
 /* ===== RÚT TIỀN ===== */
 if (text === "💸 Rút tiền") {
+  resetUserState(user);   // 🔥 DÒNG QUAN TRỌNG
   user.step = "withdraw_amount";
   return bot.sendMessage(chatId,
 `✅ Số Tiền Rút Tối Thiểu Là: 200,000 VND
