@@ -1,0 +1,200 @@
+const TelegramBot = require("node-telegram-bot-api");
+const express = require("express");
+
+/* ================== CONFIG ================== */
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const ADMINS = [1913597752];
+
+/* ================== WEB ================== */
+const app = express();
+app.get("/", (req, res) => res.send("Bot is running"));
+app.listen(process.env.PORT || 3000);
+
+/* ================== BOT ================== */
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
+/* ================== DATABASE (RAM) ================== */
+const users = {};
+const withdrawRequests = [];
+const withdrawHistory = [];
+
+function initUser(id) {
+  if (!users[id]) {
+    users[id] = {
+      balance: 0,
+      step: null,
+      betAmount: 0,
+      choice: null,
+      playing: false,
+      withdrawAmount: 0,
+      withdrawInfo: ""
+    };
+  }
+}
+
+function resetUserState(user) {
+  user.step = null;
+  user.choice = null;
+  user.playing = false;
+  user.betAmount = 0;
+  user.withdrawAmount = 0;
+  user.withdrawInfo = "";
+}
+
+/* ================== MENU ================== */
+function mainMenu(chatId) {
+  bot.sendMessage(chatId, "🎮 MENU CHÍNH", {
+    reply_markup: {
+      keyboard: [
+        ["👤 Thông tin cá nhân"],
+        ["🎲 Game chẵn lẻ"],
+        ["💳 Nạp tiền"],
+        ["💰 Số dư", "💸 Rút tiền"]
+      ],
+      resize_keyboard: true
+    }
+  });
+}
+
+/* ================== START ================== */
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  initUser(chatId);
+
+  bot.sendMessage(chatId,
+`🎲 BOT CHẴN / LẺ – 1 XÚC XẮC
+
+🎯 Xúc 1 viên – Kết quả ngay
+💰 Thắng ăn đủ – Thua mất cược
+🔒 Minh bạch – tự động
+
+⚠️ ADMIN DUY NHẤT: @admxucxactele`
+  );
+
+  mainMenu(chatId);
+});
+
+/* ================== MESSAGE ================== */
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
+  const text = (msg.text || "").replace(/,/g, '');
+  initUser(chatId);
+  const user = users[chatId];
+
+  if (text === "👤 Thông tin cá nhân") {
+    return bot.sendMessage(chatId,
+`👤 ID: ${chatId}
+💰 Số dư: ${user.balance.toLocaleString()} VND`);
+  }
+
+  if (text === "💰 Số dư") {
+    return bot.sendMessage(chatId,
+`💰 ${user.balance.toLocaleString()} VND`);
+  }
+
+  if (text === "💳 Nạp tiền") {
+    return bot.sendMessage(chatId,
+`📩 Liên hệ admin: @admxucxactele`);
+  }
+
+  if (text === "🎲 Game chẵn lẻ") {
+    resetUserState(user);
+    user.step = "bet";
+    return bot.sendMessage(chatId,
+`💵 NHẬP TIỀN CƯỢC
+Tối thiểu 5,000 VND`);
+  }
+
+  if (user.step === "bet") {
+    if (!/^\d+$/.test(text)) return;
+    const amount = parseInt(text);
+
+    if (amount < 5000)
+      return bot.sendMessage(chatId, "❌ Cược tối thiểu 5,000");
+    if (amount > user.balance)
+      return bot.sendMessage(chatId, "❌ Số dư không đủ");
+
+    user.betAmount = amount;
+    user.step = "choose";
+
+    return bot.sendMessage(chatId, "👉 Chọn cửa", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "⚪ CHẴN (2-4-6)", callback_data: "even" }],
+          [{ text: "⚫ LẺ (1-3-5)", callback_data: "odd" }]
+        ]
+      }
+    });
+  }
+});
+
+/* ================== CALLBACK ================== */
+bot.on("callback_query", async (q) => {
+  const chatId = q.message.chat.id;
+  initUser(chatId);
+  const user = users[chatId];
+
+  // ===== CHỌN CỬA =====
+  if (q.data === "even" || q.data === "odd") {
+    if (user.choice)
+      return bot.answerCallbackQuery(q.id, { text: "❌ Đã chọn rồi", show_alert: true });
+
+    user.choice = q.data;
+    user.playing = true;
+
+    return bot.sendMessage(chatId, "🎲 BẤM ĐỂ XÚC", {
+      reply_markup: {
+        inline_keyboard: [[{ text: "🎲 XÚC", callback_data: "roll" }]]
+      }
+    });
+  }
+
+  // ===== XÚC =====
+  if (q.data === "roll" && user.playing) {
+    const dice = await bot.sendDice(chatId);
+    const value = dice.dice.value;
+
+    const isEven = value % 2 === 0;
+    const win = (user.choice === "even" && isEven) ||
+                (user.choice === "odd" && !isEven);
+
+    const change = user.betAmount;
+    user.balance += win ? change : -change;
+
+    await bot.sendMessage(chatId,
+`🎲 KẾT QUẢ
+🎯 Xúc: ${value}
+📌 Bạn chọn: ${user.choice === "even" ? "CHẴN" : "LẺ"}
+🏆 Kết quả: ${win ? "THẮNG" : "THUA"}
+💰 ${win ? "+" : "-"}${change.toLocaleString()} VND
+💳 Số dư: ${user.balance.toLocaleString()} VND`);
+
+    // LOG ADMIN
+    ADMINS.forEach(aid => {
+      bot.sendMessage(aid,
+`📊 LOG CHẴN LẺ
+👤 ID: ${chatId}
+🎲 Xúc: ${value}
+🎯 Cửa: ${user.choice}
+💰 ${win ? "+" : "-"}${change.toLocaleString()}
+💳 Dư: ${user.balance.toLocaleString()}`);
+    });
+
+    resetUserState(user);
+    return mainMenu(chatId);
+  }
+});
+
+/* ================== ADMIN NẠP ================== */
+bot.onText(/\/naptien (\d+) (\d+)/, (msg, m) => {
+  if (!ADMINS.includes(msg.chat.id)) return;
+
+  const uid = parseInt(m[1]);
+  const amount = parseInt(m[2]);
+
+  initUser(uid);
+  users[uid].balance += amount;
+
+  bot.sendMessage(uid, `🎉 Đã nạp ${amount.toLocaleString()} VND`);
+  bot.sendMessage(msg.chat.id, `✅ Nạp thành công cho ${uid}`);
+});
