@@ -149,12 +149,12 @@ if (user.step === "withdraw_info") {
   }
 
   if (text === "🎲 Game chẵn lẻ") {
-    resetUserState(user);
-    user.step = "bet";
-    return bot.sendMessage(chatId,
+  resetUserState(user); // 🔥 QUAN TRỌNG
+  user.step = "bet";
+  return bot.sendMessage(chatId,
 `💵 NHẬP TIỀN CƯỢC
 Tối thiểu 5,000 VND`);
-  }
+}
 
   if (user.step === "bet") {
     if (!/^\d+$/.test(text)) return;
