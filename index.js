@@ -227,7 +227,7 @@ bot.on("callback_query", async (q) => {
     return mainMenu(chatId);
   }
 });
-/if (q.data === "confirm_withdraw") {
+if (q.data === "confirm_withdraw") {
   withdrawRequests.push({
     id: chatId,
     amount: user.withdrawAmount,
