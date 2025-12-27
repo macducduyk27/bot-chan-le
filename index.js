@@ -318,7 +318,7 @@ Cảm ơn bạn đã sử dụng bot ❤️`);
 `✅ Đã duyệt rút tiền cho user ${uid}
 💰 ${req.amount.toLocaleString()} VND`);
 });
-bot.onText(/\/danhsachrut/, (msg) => {
+bot.onText(/\/bangrut/, (msg) => {
   if (!ADMINS.includes(msg.chat.id)) return;
 
   if (withdrawRequests.length === 0) {
