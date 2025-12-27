@@ -271,25 +271,6 @@ if (q.data === "cancel_withdraw") {
   }
 });
 
-  user.balance -= user.withdrawAmount;
-
-  bot.editMessageText("✅ Đã ghi nhận yêu cầu rút tiền", {
-    chat_id: chatId,
-    message_id: q.message.message_id
-  });
-
-  ADMINS.forEach(aid => {
-    bot.sendMessage(aid,
-`📢 YÊU CẦU RÚT TIỀN
-👤 ID: ${chatId}
-💰 ${user.withdrawAmount.toLocaleString()} VND
-🏧 ${user.withdrawInfo}`);
-  });
-
-  resetUserState(user);
-  return mainMenu(chatId);
-}
-
 /* ================== ADMIN NẠP ================== */
 bot.onText(/\/naptien (\d+) (\d+)/, (msg, m) => {
   if (!ADMINS.includes(msg.chat.id)) return;
